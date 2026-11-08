@@ -164,5 +164,46 @@ curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json
 
 第一条返回商品列表。第二条在库存足够时创建待支付订单，返回订单金额和状态 `PENDING_PAYMENT`。数量超过库存时返回 400，消息为「下单数量不能超过商品库存」。
 
+八、第 05 周容器运行说明
+
+本周用 Docker 构建 `monolith/`，并用 Compose 同时启动应用和 MySQL 8.4.11。应用通过服务名 `mysql` 连接数据库，数据保存在命名卷 `mysql-data`。
+
+### 配置模板和启动
+
+在仓库根目录执行：
+
+```bash
+cp .env.example .env
+docker build -t distributed-shopping:week05 ./monolith
+docker compose up -d --build
+docker compose ps
+docker compose down
+```
+
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
+docker build -t distributed-shopping:week05 ./monolith
+docker compose up -d --build
+docker compose ps
+docker compose down
+```
+
+复制后编辑 `.env`，填写 `MYSQL_ROOT_PASSWORD`。`.env` 不提交。停止时不要加 `-v`，否则会删掉数据库卷。
+
+### 健康检查和业务接口
+
+应用映射到本机 8080，除非 `.env` 里修改了 `APP_PORT`。
+
+```bash
+curl http://localhost:8080/actuator/health
+curl http://localhost:8080/api/products
+curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json" -d "{\"buyerName\":\"陈鑫涛\",\"productId\":1,\"quantity\":1}"
+curl http://localhost:8080/api/orders/1
+```
+
+健康接口返回 `UP`。商品表为空时，先按 [docs/database.md](docs/database.md) 插入商品，再创建订单。创建成功后，`GET /api/orders/1` 返回同一条订单。`docker compose down` 不要加 `-v`，命名卷会保留订单和库存；再次 `docker compose up -d` 后查询同一 ID，关键字段不变。
+
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

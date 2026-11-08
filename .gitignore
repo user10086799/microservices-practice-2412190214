@@ -4,3 +4,4 @@ monolith/target/
 .classpath
 .project
 .settings/
+.env
