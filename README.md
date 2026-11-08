@@ -95,5 +95,30 @@
    复杂的推荐算法与大数据分析。
 
 
+六、第 03 周运行说明
+
+环境要求：Java 25。Maven 使用 `monolith/` 目录中的 Maven Wrapper，不需要单独安装 Maven。Spring Boot 4.0.9。默认端口 8080。
+
+在 `monolith/` 目录执行：
+
+```bash
+./mvnw test
+./mvnw spring-boot:run
+```
+
+Windows PowerShell：
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+验证地址：
+
+- 问候接口：http://localhost:8080/api/hello
+- 健康检查：http://localhost:8080/actuator/health
+
+本周尚未实现用户、商品、库存、购物车、订单、支付、评价，以及数据库、Service 和 Repository。当前工程只包含应用启动、基础配置、`GET /api/hello` 和启动测试。上文中的业务模块仍是后续规划。
+
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*
