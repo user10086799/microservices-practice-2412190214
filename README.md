@@ -120,5 +120,49 @@ Windows PowerShell：
 
 本周尚未实现用户、商品、库存、购物车、订单、支付、评价，以及数据库、Service 和 Repository。当前工程只包含应用启动、基础配置、`GET /api/hello` 和启动测试。上文中的业务模块仍是后续规划。
 
+七、第 04 周运行说明
+
+本周在 `monolith/` 中实现买家浏览商品并提交订单。接口前缀为 `/api`，数据使用 MySQL，测试使用 H2。
+
+### 本地 MySQL
+
+1. 安装并启动 MySQL。本机已检测到 MySQL Server 9.5。
+2. 创建数据库：
+
+```sql
+CREATE DATABASE IF NOT EXISTS shopping DEFAULT CHARACTER SET utf8mb4;
+```
+
+3. 打开 `monolith/src/main/resources/application.yml`，确认地址是 `jdbc:mysql://localhost:3306/shopping`，并把 `username`、`password` 改成你的 MySQL 账号。示例密码是 `123456`。
+4. 在 `monolith/` 启动应用。Hibernate 会创建或更新 `product`、`orders` 两张表。
+5. 如果商品表是空的，执行 [docs/database.md](docs/database.md) 里的插入语句。同一条语句可以重复执行。
+
+### 启动、测试和调用
+
+```bash
+cd monolith
+./mvnw test
+./mvnw spring-boot:run
+```
+
+Windows PowerShell：
+
+```powershell
+cd monolith
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+`./mvnw test` 使用内存 H2 和 `src/test/resources/data.sql`，不连接 MySQL，可以重复通过。
+
+默认端口仍是 8080。至少可以这样调用：
+
+```bash
+curl http://localhost:8080/api/products
+curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json" -d "{\"buyerName\":\"陈鑫涛\",\"productId\":1,\"quantity\":1}"
+```
+
+第一条返回商品列表。第二条在库存足够时创建待支付订单，返回订单金额和状态 `PENDING_PAYMENT`。数量超过库存时返回 400，消息为「下单数量不能超过商品库存」。
+
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

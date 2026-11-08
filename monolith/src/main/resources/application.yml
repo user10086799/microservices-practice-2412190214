@@ -4,6 +4,20 @@ server:
 spring:
   application:
     name: distributed-shopping
+  datasource:
+    url: jdbc:mysql://localhost:3306/shopping?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    username: root
+    password: Walty1314
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: never
 
 management:
   endpoints:
