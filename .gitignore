@@ -1,4 +1,5 @@
 monolith/target/
+target/
 .idea/
 *.iml
 .classpath

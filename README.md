@@ -166,6 +166,8 @@ curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json
 
 八、第 05 周容器运行说明
 
+第 06 周起，根目录 `compose.yaml` 改为同时启动 user-service、product-service、order-service 和 MySQL。本节保留第 05 周单体容器的构建和调用记录。
+
 本周用 Docker 构建 `monolith/`，并用 Compose 同时启动应用和 MySQL 8.4.11。应用通过服务名 `mysql` 连接数据库，数据保存在命名卷 `mysql-data`。
 
 ### 配置模板和启动
@@ -204,6 +206,59 @@ curl http://localhost:8080/api/orders/1
 ```
 
 健康接口返回 `UP`。商品表为空时，先按 [docs/database.md](docs/database.md) 插入商品，再创建订单。创建成功后，`GET /api/orders/1` 返回同一条订单。`docker compose down` 不要加 `-v`，命名卷会保留订单和库存；再次 `docker compose up -d` 后查询同一 ID，关键字段不变。
+
+九、第 06 周微服务
+
+服务边界和架构图见 [docs/microservices-design.md](docs/microservices-design.md)。`monolith/` 仍然是单体版本。三个服务在 `services/` 下，各自有 `pom.xml`、`src/` 和 Dockerfile。
+
+### 测试
+
+在仓库根目录执行。测试使用 H2，不连接 MySQL。
+
+```powershell
+.\monolith\mvnw.cmd -f services\user-service\pom.xml test
+.\monolith\mvnw.cmd -f services\product-service\pom.xml test
+.\monolith\mvnw.cmd -f services\order-service\pom.xml test
+```
+
+```bash
+./monolith/mvnw -f services/user-service/pom.xml test
+./monolith/mvnw -f services/product-service/pom.xml test
+./monolith/mvnw -f services/order-service/pom.xml test
+```
+
+### 配置模板、启动和验证
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+bash scripts/smoke-test.sh
+docker compose down
+```
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build
+docker compose ps
+bash scripts/smoke-test.sh
+docker compose down
+```
+
+编辑 `.env` 里的 `MYSQL_ROOT_PASSWORD`、`USER_DB_PASSWORD`、`PRODUCT_DB_PASSWORD` 和 `ORDER_DB_PASSWORD`。`.env` 不提交。停止时不要加 `-v`，否则会删除 `services-mysql-data`。
+
+用户服务映射 `8081`，商品服务映射 `8082`，订单服务映射 `8083`。容器内订单服务通过 `http://user-service:8081` 和 `http://product-service:8082` 调用，不使用 localhost。
+
+```bash
+curl http://localhost:8081/actuator/health
+curl http://localhost:8082/actuator/health
+curl http://localhost:8083/actuator/health
+curl -X POST http://localhost:8081/api/users -H "Content-Type: application/json" -d "{\"name\":\"陈鑫涛\"}"
+curl -X POST http://localhost:8082/api/products -H "Content-Type: application/json" -d "{\"name\":\"无线鼠标\",\"description\":\"静音办公鼠标\",\"price\":89.00,\"stock\":20}"
+curl -X POST http://localhost:8083/api/orders -H "Content-Type: application/json" -d "{\"userId\":1,\"productId\":1,\"quantity\":1}"
+```
+
+`scripts/smoke-test.sh` 会检查三个健康接口、完成一次跨服务下单，并检查商品不存在和商品服务停止时的失败结果。
 
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

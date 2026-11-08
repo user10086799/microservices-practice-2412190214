@@ -3,9 +3,12 @@ services:
     image: mysql:8.4.11
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
     volumes:
-      - mysql-data:/var/lib/mysql
+      - services-mysql-data:/var/lib/mysql
+      - ./scripts/mysql-init.sh:/docker-entrypoint-initdb.d/10-init-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 5s
@@ -15,16 +18,16 @@ services:
     networks:
       - shopping
 
-  app:
-    image: distributed-shopping:week05
+  user-service:
+    image: user-service:week06
     build:
-      context: ./monolith
+      context: ./services/user-service
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${USER_PORT:-8081}:8081"
     environment:
-      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/shopping_user?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: user_app
+      SPRING_DATASOURCE_PASSWORD: ${USER_DB_PASSWORD}
       SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
     depends_on:
       mysql:
@@ -32,8 +35,50 @@ services:
     networks:
       - shopping
 
+  product-service:
+    image: product-service:week06
+    build:
+      context: ./services/product-service
+    ports:
+      - "${PRODUCT_PORT:-8082}:8082"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/shopping_product?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: product_app
+      SPRING_DATASOURCE_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - shopping
+
+  order-service:
+    image: order-service:week06
+    build:
+      context: ./services/order-service
+    ports:
+      - "${ORDER_PORT:-8083}:8083"
+    environment:
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/shopping_order?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8"
+      SPRING_DATASOURCE_USERNAME: order_app
+      SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
+      USER_SERVICE_URL: http://user-service:8081
+      PRODUCT_SERVICE_URL: http://product-service:8082
+      HTTP_CONNECT_TIMEOUT: 2s
+      HTTP_READ_TIMEOUT: 3s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      product-service:
+        condition: service_started
+    networks:
+      - shopping
+
 volumes:
-  mysql-data:
+  services-mysql-data:
 
 networks:
   shopping:
