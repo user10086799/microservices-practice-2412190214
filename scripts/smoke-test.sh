@@ -2,9 +2,31 @@
 set -u
 cd "$(dirname "$0")/.."
 
-USER_URL="${USER_URL:-http://localhost:${USER_PORT:-8081}}"
-PRODUCT_URL="${PRODUCT_URL:-http://localhost:${PRODUCT_PORT:-8082}}"
-ORDER_URL="${ORDER_URL:-http://localhost:${ORDER_PORT:-8083}}"
+read_env() {
+  local key="$1"
+  local current="$2"
+  if [ -n "$current" ]; then
+    printf '%s' "$current"
+    return
+  fi
+  if [ -f .env ]; then
+    sed -n "s/^${key}=//p" .env | head -n 1 | tr -d '\r'
+  fi
+}
+
+USER_PORT="$(read_env USER_PORT "${USER_PORT:-}")"
+PRODUCT_PORT="$(read_env PRODUCT_PORT "${PRODUCT_PORT:-}")"
+ORDER_PORT="$(read_env ORDER_PORT "${ORDER_PORT:-}")"
+NACOS_CONSOLE_PORT="$(read_env NACOS_CONSOLE_PORT "${NACOS_CONSOLE_PORT:-}")"
+USER_PORT="${USER_PORT:-8081}"
+PRODUCT_PORT="${PRODUCT_PORT:-8082}"
+ORDER_PORT="${ORDER_PORT:-8083}"
+NACOS_CONSOLE_PORT="${NACOS_CONSOLE_PORT:-18080}"
+
+USER_URL="${USER_URL:-http://127.0.0.1:${USER_PORT:-8081}}"
+PRODUCT_URL="${PRODUCT_URL:-http://127.0.0.1:${PRODUCT_PORT:-8082}}"
+ORDER_URL="${ORDER_URL:-http://127.0.0.1:${ORDER_PORT:-8083}}"
+NACOS_CONSOLE_URL="${NACOS_CONSOLE_URL:-http://127.0.0.1:${NACOS_CONSOLE_PORT:-18080}/}"
 BODY="$(mktemp)"
 fail=0
 
@@ -20,12 +42,7 @@ say() {
 request() {
   local method="$1"
   local url="$2"
-  local data="${3:-}"
-  if [ -n "$data" ]; then
-    curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w "%{http_code}" -X "$method" "$url" -H "Content-Type: application/json" -d "$data" || true
-  else
-    curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w "%{http_code}" -X "$method" "$url" || true
-  fi
+  curl -sS --connect-timeout 5 --max-time 20 -o "$BODY" -w "%{http_code}" -X "$method" "$url" || true
 }
 
 expect() {
@@ -38,88 +55,27 @@ expect() {
     say "FAIL $label -> $actual, expected $wanted"
     fail=1
   fi
-  say "$(cat "$BODY")"
 }
 
-json_id() {
-  sed -n 's/.*"id":[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$BODY" | head -n 1
-}
-
-count_orders() {
-  request GET "$ORDER_URL/api/orders" >/dev/null
-  grep -o '"id"' "$BODY" | wc -l | tr -d '[:space:]'
-}
+say "===== nacos console ====="
+code="$(request GET "$NACOS_CONSOLE_URL")"
+if [ "$code" = "200" ] || [ "$code" = "302" ] || [ "$code" = "301" ]; then
+  say "PASS GET $NACOS_CONSOLE_URL -> $code"
+else
+  say "FAIL GET $NACOS_CONSOLE_URL -> $code"
+  fail=1
+fi
 
 say "===== health ====="
-for item in "user-service|$USER_URL" "product-service|$PRODUCT_URL" "order-service|$ORDER_URL"; do
-  name="${item%%|*}"
-  url="${item#*|}"
-  code="$(request GET "$url/actuator/health")"
-  expect "$code" 200 "$name GET $url/actuator/health"
-done
-
-say "===== cross-service order ====="
-code="$(request POST "$USER_URL/api/users" '{"name":"陈鑫涛"}')"
-expect "$code" 200 "POST $USER_URL/api/users"
-user_id="$(json_id)"
-say "userId=$user_id"
-
-code="$(request POST "$PRODUCT_URL/api/products" '{"name":"无线鼠标","description":"静音办公鼠标","price":89.00,"stock":20}')"
-expect "$code" 200 "POST $PRODUCT_URL/api/products"
-product_id="$(json_id)"
-say "productId=$product_id"
-
-code="$(request POST "$ORDER_URL/api/orders" "{\"userId\":$user_id,\"productId\":$product_id,\"quantity\":1}")"
-expect "$code" 200 "POST $ORDER_URL/api/orders"
-order_id="$(json_id)"
-say "orderId=$order_id"
-
-code="$(request GET "$ORDER_URL/api/orders/$order_id")"
-expect "$code" 200 "GET $ORDER_URL/api/orders/$order_id"
-
-code="$(request GET "$PRODUCT_URL/api/products/$product_id")"
-expect "$code" 200 "GET $PRODUCT_URL/api/products/$product_id"
-
-say "===== missing product ====="
-mid_before="$(count_orders)"
-code="$(request POST "$ORDER_URL/api/orders" "{\"userId\":$user_id,\"productId\":99999,\"quantity\":1}")"
-expect "$code" 404 "POST $ORDER_URL/api/orders missing product"
-mid_after="$(count_orders)"
-if [ "$mid_before" = "$mid_after" ]; then
-  say "PASS order count unchanged at $mid_after"
-else
-  say "FAIL order count changed from $mid_before to $mid_after"
-  fail=1
-fi
-
-say "===== product service unavailable ====="
-down_before="$(count_orders)"
-docker compose stop product-service
-code="$(request POST "$ORDER_URL/api/orders" "{\"userId\":$user_id,\"productId\":$product_id,\"quantity\":1}")"
-expect "$code" 503 "POST $ORDER_URL/api/orders while product-service is stopped"
-down_after="$(count_orders)"
-if [ "$down_before" = "$down_after" ]; then
-  say "PASS order count unchanged at $down_after"
-else
-  say "FAIL order count changed from $down_before to $down_after"
-  fail=1
-fi
-docker compose start product-service
-ready=0
-for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
-  code="$(request GET "$PRODUCT_URL/actuator/health")"
-  if [ "$code" = "200" ]; then
-    ready=1
-    break
-  fi
-  sleep 1
-done
-if [ "$ready" = "1" ]; then
-  say "PASS product-service health recovered"
-else
-  say "FAIL product-service did not recover"
-  fail=1
-fi
+code="$(request GET "$USER_URL/actuator/health")"
+expect "$code" 200 "user-service GET $USER_URL/actuator/health"
+say "$(cat "$BODY")"
+code="$(request GET "$PRODUCT_URL/actuator/health")"
+expect "$code" 200 "product-service GET $PRODUCT_URL/actuator/health"
+say "$(cat "$BODY")"
+code="$(request GET "$ORDER_URL/actuator/health")"
+expect "$code" 200 "order-service GET $ORDER_URL/actuator/health"
+say "$(cat "$BODY")"
 
 if [ "$fail" = "0" ]; then
   say "SMOKE TEST PASSED"

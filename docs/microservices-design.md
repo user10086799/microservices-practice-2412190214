@@ -24,13 +24,13 @@
 
 ## 调用关系
 
-下单由 order-service 串起来：
+下单由 order-service 串起来。第 07 周起，订单服务每次通过 Nacos 分组 `CXT_SHOPPING` 发现实例，取第一个实例的地址再访问原来的业务路径：
 
-1. `GET http://user-service:8081/api/users/{id}`。用户不存在时返回 404，不写订单，也不扣库存。
-2. `POST http://product-service:8082/api/products/{id}/stock-deductions`。商品不存在返回 404，数量超过库存返回 400，商品服务连不上返回 503。这些情况下 order-service 不写本地订单。
+1. `GET /api/users/{id}`。用户不存在时返回 404，不写订单，也不扣库存。发现不到 user-service 实例时返回 503。
+2. `POST /api/products/{id}/stock-deductions`。商品不存在返回 404，数量超过库存返回 400。发现不到 product-service 实例或连接失败时返回 503。这些情况下 order-service 不写本地订单。
 3. 两次调用都成功后，order-service 才把订单写入 `shopping_order`。金额等于商品单价乘以数量，状态为 `PENDING_PAYMENT`。
 
-user-service 和 product-service 不互相调用。服务地址写在 order-service 的 `application.yml`，容器里用 `USER_SERVICE_URL` 和 `PRODUCT_SERVICE_URL` 覆盖。RestTemplate 的连接超时是 2 秒，读取超时是 3 秒。
+user-service 和 product-service 不互相调用。三个服务使用默认命名空间，分组都是 `CXT_SHOPPING`。注册中心地址用 `NACOS_SERVER_ADDR` 配置，容器里是 `nacos:8848`。RestTemplate 的连接超时是 2 秒，读取超时是 3 秒。
 
 库存扣减在 product-service 提交成功之后，订单才开始写自己的库。如果扣库存已经成功，而订单写入失败，就会出现远端成功、本地失败：库存少了，订单却不存在。本周只把这个窗口说明清楚，不实现补偿。
 

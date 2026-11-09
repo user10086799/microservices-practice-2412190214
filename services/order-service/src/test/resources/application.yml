@@ -12,8 +12,15 @@ spring:
     init:
       mode: never
 
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+        register-enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false
+
 clients:
   connect-timeout: 2s
   read-timeout: 3s
-  user-service-url: http://user-service:8081
-  product-service-url: http://product-service:8082

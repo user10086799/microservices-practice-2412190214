@@ -11,3 +11,12 @@ spring:
   sql:
     init:
       mode: never
+
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
+        register-enabled: false
+    service-registry:
+      auto-registration:
+        enabled: false

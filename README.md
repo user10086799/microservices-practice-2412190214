@@ -209,6 +209,8 @@ curl http://localhost:8080/api/orders/1
 
 九、第 06 周微服务
 
+第 07 周起，订单服务改为通过 Nacos 按服务名发现实例。本节保留第 06 周三个服务和独立数据库的记录。当前启动步骤在下一节。
+
 服务边界和架构图见 [docs/microservices-design.md](docs/microservices-design.md)。`monolith/` 仍然是单体版本。三个服务在 `services/` 下，各自有 `pom.xml`、`src/` 和 Dockerfile。
 
 ### 测试
@@ -258,7 +260,74 @@ curl -X POST http://localhost:8082/api/products -H "Content-Type: application/js
 curl -X POST http://localhost:8083/api/orders -H "Content-Type: application/json" -d "{\"userId\":1,\"productId\":1,\"quantity\":1}"
 ```
 
-`scripts/smoke-test.sh` 会检查三个健康接口、完成一次跨服务下单，并检查商品不存在和商品服务停止时的失败结果。
+`scripts/smoke-test.sh` 会检查 Nacos 控制台和三个服务的健康接口。任一检查失败时脚本返回非零。跨服务下单、服务下线和恢复的记录在第 07 周说明里。
+
+十、第 07 周 Nacos
+
+先单独启动 Nacos，初始化管理员密码，再启动数据库和三个业务服务。控制台只绑定本机，地址是 http://127.0.0.1:18080 。服务端 HTTP 端口是 8848，SDK 使用 9848。分组是 `CXT_SHOPPING`，命名空间使用默认 public。真实 Token、Server identity 和管理员密码只写在 `.env`。
+
+```bash
+cp .env.example .env
+set -a
+source .env
+set +a
+docker compose up -d nacos
+curl -sS -o /dev/null -w "init:%{http_code}\n" -X POST http://127.0.0.1:8848/nacos/v3/auth/user/admin -d "password=${NACOS_PASSWORD}"
+docker compose up -d --build
+docker compose ps
+bash scripts/smoke-test.sh
+```
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d nacos
+$nacosPassword = (Get-Content .env | Where-Object { $_ -like 'NACOS_PASSWORD=*' } | Select-Object -First 1).Substring('NACOS_PASSWORD='.Length)
+curl.exe -sS -o NUL -w "init:%{http_code}`n" -X POST http://127.0.0.1:8848/nacos/v3/auth/user/admin --data-urlencode "password=$nacosPassword"
+docker compose up -d --build
+docker compose ps
+bash scripts/smoke-test.sh
+```
+
+初始化接口在管理员已经存在时会拒绝再次设置，可以继续执行后面的启动命令。停止时不要加 `-v`，否则会删除 `nacos-data` 和 `services-mysql-data`。
+
+查看注册列表时登录控制台，服务名是 `user-service`、`product-service`、`order-service`，分组是 `CXT_SHOPPING`。
+
+### 测试
+
+进入各服务目录运行测试。测试使用 H2，并关闭 Nacos 自动注册，不连接真实 Nacos 或 MySQL。
+
+```powershell
+Set-Location services\user-service
+..\..\monolith\mvnw.cmd test
+Set-Location ..\..
+Set-Location services\product-service
+..\..\monolith\mvnw.cmd test
+Set-Location ..\..
+Set-Location services\order-service
+..\..\monolith\mvnw.cmd test
+Set-Location ..\..
+```
+
+```bash
+(cd services/user-service && ../../monolith/mvnw test)
+(cd services/product-service && ../../monolith/mvnw test)
+(cd services/order-service && ../../monolith/mvnw test)
+```
+
+业务调用示例：
+
+本次验证中本机 `8082` 已被其他程序占用，`.env` 的 `PRODUCT_PORT` 使用 `18082`。容器内商品服务仍监听 `8082`，Nacos 实例端口也是 `8082`。
+
+```bash
+curl http://127.0.0.1:8081/actuator/health
+curl http://127.0.0.1:18082/actuator/health
+curl http://127.0.0.1:8083/actuator/health
+curl -X POST http://127.0.0.1:8081/api/users -H "Content-Type: application/json" -d "{\"name\":\"陈鑫涛\"}"
+curl -X POST http://127.0.0.1:18082/api/products -H "Content-Type: application/json" -d "{\"name\":\"无线鼠标\",\"description\":\"静音办公鼠标\",\"price\":89.00,\"stock\":20}"
+curl -X POST http://127.0.0.1:8083/api/orders -H "Content-Type: application/json" -d "{\"userId\":1,\"productId\":1,\"quantity\":1}"
+```
+
+订单服务每次向 Nacos 查询 `user-service` 和 `product-service` 的实例，再用实例地址访问上面的路径。
 
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

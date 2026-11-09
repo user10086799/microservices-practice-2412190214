@@ -4,9 +4,5 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "clients")
-public record ClientProperties(
-        Duration connectTimeout,
-        Duration readTimeout,
-        String userServiceUrl,
-        String productServiceUrl) {
+public record ClientProperties(Duration connectTimeout, Duration readTimeout) {
 }
