@@ -20,7 +20,3 @@ spring:
     service-registry:
       auto-registration:
         enabled: false
-
-clients:
-  connect-timeout: 2s
-  read-timeout: 3s

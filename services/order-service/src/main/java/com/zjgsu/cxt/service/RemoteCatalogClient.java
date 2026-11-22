@@ -1,79 +1,101 @@
 package com.zjgsu.cxt.service;
 
+import com.zjgsu.cxt.client.ProductClient;
+import com.zjgsu.cxt.client.UserClient;
+import com.zjgsu.cxt.dto.ProductProbe;
 import com.zjgsu.cxt.dto.ProductSnapshot;
 import com.zjgsu.cxt.dto.UserProfile;
-import java.util.List;
+import feign.FeignException;
 import java.util.Map;
-import org.springframework.cloud.client.ServiceInstance;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestTemplate;
 
 @Component
 public class RemoteCatalogClient {
 
-    static final String USER_SERVICE = "user-service";
-    static final String PRODUCT_SERVICE = "product-service";
+    private static final Logger log = LoggerFactory.getLogger(RemoteCatalogClient.class);
 
-    private final RestTemplate restTemplate;
-    private final DiscoveryClient discoveryClient;
+    private final UserClient userClient;
+    private final ProductClient productClient;
 
-    public RemoteCatalogClient(RestTemplate restTemplate, DiscoveryClient discoveryClient) {
-        this.restTemplate = restTemplate;
-        this.discoveryClient = discoveryClient;
+    public RemoteCatalogClient(UserClient userClient, ProductClient productClient) {
+        this.userClient = userClient;
+        this.productClient = productClient;
     }
 
     public UserProfile requireUser(Long userId) {
-        String url = instanceBase(USER_SERVICE, "用户服务不可用") + "/api/users/" + userId;
+        log.info("OpenFeign 调用服务名 user-service GET /api/users/{}", userId);
         try {
-            UserProfile user = restTemplate.getForObject(url, UserProfile.class);
+            UserProfile user = userClient.getUser(userId);
             if (user == null || user.id() == null) {
                 throw new BusinessException(404, "用户不存在");
             }
             return user;
         } catch (BusinessException exception) {
             throw exception;
-        } catch (HttpStatusCodeException exception) {
-            throw new BusinessException(exception.getStatusCode().value(), messageOf(exception, "用户不存在"));
-        } catch (ResourceAccessException exception) {
+        } catch (FeignException exception) {
+            if (exception.status() == 404) {
+                throw new BusinessException(404, messageOf(exception, "用户不存在"));
+            }
+            if (exception.status() >= 400 && exception.status() < 500) {
+                throw new BusinessException(exception.status(), messageOf(exception, "用户服务拒绝请求"));
+            }
             throw new BusinessException(503, "用户服务不可用");
         }
     }
 
     public ProductSnapshot deductStock(Long productId, int quantity) {
-        String url = instanceBase(PRODUCT_SERVICE, "商品服务不可用") + "/api/products/" + productId + "/stock-deductions";
+        log.info("OpenFeign 调用服务名 product-service POST /api/products/{}/stock-deductions", productId);
         try {
-            ProductSnapshot product = restTemplate.postForObject(url, Map.of("quantity", quantity), ProductSnapshot.class);
+            ProductSnapshot product = productClient.deductStock(productId, Map.of("quantity", quantity));
             if (product == null || product.id() == null || product.price() == null) {
                 throw new BusinessException(502, "商品服务返回了无效数据");
             }
             return product;
         } catch (BusinessException exception) {
             throw exception;
-        } catch (HttpStatusCodeException exception) {
-            throw new BusinessException(exception.getStatusCode().value(), messageOf(exception, "商品服务拒绝请求"));
-        } catch (ResourceAccessException exception) {
+        } catch (FeignException exception) {
+            if (exception.status() >= 400 && exception.status() < 500) {
+                throw new BusinessException(exception.status(), messageOf(exception, "商品服务拒绝请求"));
+            }
             throw new BusinessException(503, "商品服务不可用");
         }
     }
 
-    private String instanceBase(String serviceName, String unavailableMessage) {
-        List<ServiceInstance> instances;
+    public ProductProbe probeProduct(Long productId) {
+        log.info("OpenFeign 调用服务名 product-service GET /api/products/{}", productId);
         try {
-            instances = discoveryClient.getInstances(serviceName);
-        } catch (RuntimeException exception) {
-            throw new BusinessException(503, unavailableMessage);
+            ResponseEntity<ProductSnapshot> response = productClient.getProduct(productId);
+            ProductSnapshot product = response.getBody();
+            if (product == null || product.id() == null) {
+                throw new BusinessException(502, "商品服务返回了无效数据");
+            }
+            return new ProductProbe(response.getHeaders().getFirst("X-Instance-Id"), product.id(), product.name());
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (FeignException exception) {
+            if (exception.status() == 404) {
+                throw new BusinessException(404, messageOf(exception, "商品不存在"));
+            }
+            if (exception.status() >= 400 && exception.status() < 500) {
+                throw new BusinessException(exception.status(), messageOf(exception, "商品服务拒绝请求"));
+            }
+            throw new BusinessException(503, "商品服务不可用");
         }
-        if (instances == null || instances.isEmpty() || instances.get(0).getUri() == null) {
-            throw new BusinessException(503, unavailableMessage);
-        }
-        return instances.get(0).getUri().toString();
     }
 
-    private static String messageOf(HttpStatusCodeException exception, String fallback) {
-        String body = exception.getResponseBodyAsString();
+    private static String messageOf(FeignException exception, String fallback) {
+        String body;
+        try {
+            body = exception.contentUTF8();
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+        if (body == null) {
+            return fallback;
+        }
         int key = body.indexOf("\"message\"");
         if (key < 0) {
             return fallback;

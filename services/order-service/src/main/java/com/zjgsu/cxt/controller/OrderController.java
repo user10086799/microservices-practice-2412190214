@@ -2,6 +2,7 @@ package com.zjgsu.cxt.controller;
 
 import com.zjgsu.cxt.dto.CreateOrderRequest;
 import com.zjgsu.cxt.dto.OrderResponse;
+import com.zjgsu.cxt.dto.ProductProbe;
 import com.zjgsu.cxt.service.OrderPlacementService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -30,6 +31,11 @@ public class OrderController {
     @GetMapping
     public List<OrderResponse> list() {
         return orderPlacementService.list();
+    }
+
+    @GetMapping("/upstream/products/{id}")
+    public ProductProbe probeProduct(@PathVariable Long id) {
+        return orderPlacementService.probeProduct(id);
     }
 
     @GetMapping("/{id}")

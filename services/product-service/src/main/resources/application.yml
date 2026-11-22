@@ -27,6 +27,9 @@ spring:
     init:
       mode: never
 
+instance:
+  id: ${INSTANCE_ID:product-1}
+
 management:
   endpoints:
     web:

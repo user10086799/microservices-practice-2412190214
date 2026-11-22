@@ -209,7 +209,7 @@ curl http://localhost:8080/api/orders/1
 
 九、第 06 周微服务
 
-第 07 周起，订单服务改为通过 Nacos 按服务名发现实例。本节保留第 06 周三个服务和独立数据库的记录。当前启动步骤在下一节。
+本节保留第 06 周的记录：三个服务使用三个数据库，并放在同一个 MySQL 实例里。第 07 周接入 Nacos。第 08 周把三个数据库拆到三个 MySQL 实例，订单服务改为 OpenFeign。当前启动步骤在第十一节。
 
 服务边界和架构图见 [docs/microservices-design.md](docs/microservices-design.md)。`monolith/` 仍然是单体版本。三个服务在 `services/` 下，各自有 `pom.xml`、`src/` 和 Dockerfile。
 
@@ -263,6 +263,8 @@ curl -X POST http://localhost:8083/api/orders -H "Content-Type: application/json
 `scripts/smoke-test.sh` 会检查 Nacos 控制台和三个服务的健康接口。任一检查失败时脚本返回非零。跨服务下单、服务下线和恢复的记录在第 07 周说明里。
 
 十、第 07 周 Nacos
+
+本节保留第 07 周的记录。当时三个业务库仍在同一个 MySQL 实例，订单服务用 DiscoveryClient 取第一个实例地址。当前编排见第十一节。
 
 先单独启动 Nacos，初始化管理员密码，再启动数据库和三个业务服务。控制台只绑定本机，地址是 http://127.0.0.1:18080 。服务端 HTTP 端口是 8848，SDK 使用 9848。分组是 `CXT_SHOPPING`，命名空间使用默认 public。真实 Token、Server identity 和管理员密码只写在 `.env`。
 
@@ -328,6 +330,34 @@ curl -X POST http://127.0.0.1:8083/api/orders -H "Content-Type: application/json
 ```
 
 订单服务每次向 Nacos 查询 `user-service` 和 `product-service` 的实例，再用实例地址访问上面的路径。
+
+十一、第 08 周 OpenFeign 与独立数据库实例
+
+三个业务库分别运行在 `mysql-user`、`mysql-product`、`mysql-order`。商品服务启动 `product-service-a` 和 `product-service-b` 两个容器，镜像都是 `product-service:week08`，服务名都是 `product-service`，宿主机端口分别由 `PRODUCT_PORT` 和 `PRODUCT_PORT_B` 映射，容器内都是 `8082`。订单服务通过 OpenFeign 按服务名 `user-service`、`product-service` 调用，地址由 Nacos 和负载均衡选择。
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose ps
+bash scripts/e2e-test.sh
+```
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build
+docker compose ps
+bash scripts/e2e-test.sh
+```
+
+本次本机 `8082` 和 `8083` 已被其他程序占用，`.env` 使用 `PRODUCT_PORT=18082`、`PRODUCT_PORT_B=18083`、`ORDER_PORT=18084`。容器内端口仍是 `8081`、`8082`、`8083`。
+
+订单服务测试：
+
+```powershell
+.\monolith\mvnw.cmd -f services\order-service\pom.xml test
+```
+
+调用链路、失败处理和负载均衡记录在 [docs/service-communication.md](docs/service-communication.md) 与 [docs/homework/week-08/index.md](docs/homework/week-08/index.md)。停止时不要加 `-v`，否则会删除 `user-mysql-data`、`product-mysql-data`、`order-mysql-data` 和 `nacos-data`。
 
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

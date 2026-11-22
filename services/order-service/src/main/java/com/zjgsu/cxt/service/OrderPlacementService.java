@@ -2,6 +2,7 @@ package com.zjgsu.cxt.service;
 
 import com.zjgsu.cxt.dto.CreateOrderRequest;
 import com.zjgsu.cxt.dto.OrderResponse;
+import com.zjgsu.cxt.dto.ProductProbe;
 import com.zjgsu.cxt.dto.ProductSnapshot;
 import com.zjgsu.cxt.dto.UserProfile;
 import com.zjgsu.cxt.model.CustomerOrder;
@@ -47,6 +48,10 @@ public class OrderPlacementService {
         return orderRepository.findAll(Sort.by("id")).stream()
                 .map(OrderResponse::from)
                 .toList();
+    }
+
+    public ProductProbe probeProduct(Long productId) {
+        return remoteCatalogClient.probeProduct(productId);
     }
 
     @Transactional(readOnly = true)
