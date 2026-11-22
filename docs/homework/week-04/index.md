@@ -75,30 +75,3 @@ Finished at: 2026-11-08T14:27:36+08:00
 
 对应截图：[screenshots/d8d1f9d047f3470301a01a644d41f147.png](screenshots/d8d1f9d047f3470301a01a644d41f147.png)
 
-## 5. 作业系统填写稿
-
-公开仓库：https://github.com/user10086799/microservices-practice-2412190214
-
-下面四段可以直接复制，尚未提交。
-
-### 题目 1：业务建模
-
-本周实现买家浏览商品并提交订单。实体是商品和订单，一笔订单多对一关联一个商品。Service 检查下单数量必须大于 0 且不能超过当前库存，通过后扣减库存并按单价计算金额，订单状态为待支付。
-
-### 题目 2：单体应用实现
-
-已实现商品、订单、Service 和 Controller。接口包括查询商品、查询商品详情、创建订单和查询订单。库存足够时创建待支付订单，超过库存时返回 400。用 OrderApiTests 验证了正常和错误响应。
-
-建议上传：`b6ca19574991b128e6cc62a0342ca528.png`。
-
-### 题目 3：数据库持久化
-
-已用 Spring Data JPA 连接 MySQL 数据库 shopping，表为 product 和 orders，orders.product_id 引用商品主键。测试由 H2 和 data.sql 自动装入两件商品，./mvnw test 不依赖本机 MySQL。
-
-建议上传：`556f59f02a6c5e063c19ff068d6e30cf.png`。
-
-### 题目 4：测试与验证
-
-在 monolith 执行 ./mvnw test，6 个测试全部通过。覆盖 Repository 保存并读取商品、Service 成功下单与超库存拒绝、API 查询成功和超库存返回 400。
-
-建议上传：`d8d1f9d047f3470301a01a644d41f147.png`。

@@ -30,6 +30,11 @@ spring:
 instance:
   id: ${INSTANCE_ID:user-1}
 
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-jwt-secret-32-characters}
+    ttl-seconds: ${JWT_TTL_SECONDS:7200}
+
 management:
   endpoints:
     web:

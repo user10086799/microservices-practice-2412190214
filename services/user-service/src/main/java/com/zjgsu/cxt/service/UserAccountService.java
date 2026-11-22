@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserAccountService {
 
     private final UserRepository userRepository;
+    private final JwtService jwtService;
 
-    public UserAccountService(UserRepository userRepository) {
+    public UserAccountService(UserRepository userRepository, JwtService jwtService) {
         this.userRepository = userRepository;
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -23,6 +25,12 @@ public class UserAccountService {
         ShopUser user = new ShopUser();
         user.setName(request.name().trim());
         return UserResponse.from(userRepository.save(user));
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> listForAdmin(String authorization) {
+        jwtService.requireRole(authorization, "ADMIN");
+        return list();
     }
 
     @Transactional(readOnly = true)

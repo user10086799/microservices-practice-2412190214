@@ -124,32 +124,3 @@ SMOKE TEST PASSED
 
 对应截图：[screenshots/902828a645d1d2b859f21a871aa8ab95.png](screenshots/902828a645d1d2b859f21a871aa8ab95.png)
 
-## 5. 作业系统填写稿
-
-公开仓库：https://github.com/user10086799/microservices-practice-2412190214
-
-下面四段可以直接复制，尚未提交。
-
-### 题目 1：部署 Nacos 并注册服务
-
-先执行 docker compose up -d nacos，初始化管理员密码返回 200。控制台是 http://127.0.0.1:18080 ，服务端 8848，SDK 9848。再启动三个业务服务。Nacos 分组 CXT_SHOPPING 中能看到 user-service 172.18.0.4:8081、product-service 172.18.0.5:8082、order-service 172.18.0.6:8083。
-
-建议上传：`5bba2f39e1c66a69a221b2965a83b096.png`。
-
-### 题目 2：配置隔离并完成服务发现调用
-
-下单由 order-service 完成。它每次用 DiscoveryClient 查询分组 CXT_SHOPPING 中的 user-service 和 product-service，本次商品实例是 172.18.0.5:8082。购买 1 件无线鼠标返回订单 id=2、金额 89.00、状态 PENDING_PAYMENT，库存从 20 变为 19。实例列表为空时返回 503，不写订单。
-
-建议上传：`598d4444a2b2152a343baeb450a17061.png`。
-
-### 题目 3：验证健康状态、下线与恢复
-
-三个 Actuator 健康接口都返回 UP。停止 product-service 后实例列表为空，新的下单请求返回 503，订单数和机械键盘库存都没有变化。恢复后同一请求返回 200，订单 id=3，金额 299.00，库存变为 9。Actuator UP 表示应用健康，Nacos healthy 表示实例仍被注册中心保留，二者不会自动同步。
-
-建议上传：`dd37cab67559608f00a76bb34d96a165.png`。
-
-### 题目 4：验证脚本
-
-在仓库根目录执行 bash scripts/smoke-test.sh。脚本检查 http://127.0.0.1:18080/ 返回 302，以及 8081、18082、8083 的健康接口都返回 200。输出 SMOKE TEST PASSED，退出码为 0。任一检查失败时脚本返回 1。三个服务的 mvn test 也全部通过。
-
-建议上传：`902828a645d1d2b859f21a871aa8ab95.png`。

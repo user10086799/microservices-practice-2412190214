@@ -104,31 +104,3 @@ POST http://localhost:8083/api/orders
 远端成功、本地失败的窗口出现在扣库存和写订单之间。product-service 的库存事务已经提交，order-service 才写自己的订单。如果这时订单库写入失败，库存已经减少，但 `orders` 里没有对应记录。两个库各自提交，没有统一回滚。本周只验证顺序调用和失败时不写订单，不实现补偿。
 
 对应截图：[screenshots/bbc96e1af43ad190fc2c11c7c2e358cc.png](screenshots/bbc96e1af43ad190fc2c11c7c2e358cc.png)
-
-## 5. 作业系统填写稿
-
-公开仓库：https://github.com/user10086799/microservices-practice-2412190214
-
-下面四段可以直接复制，尚未提交。
-
-### 题目 1：服务拆分设计
-
-购物系统拆成 user-service、product-service 和 order-service。用户服务使用 8081 和 shopping_user.users，商品服务使用 8082 和 shopping_product.product，订单服务使用 8083 和 shopping_order.orders。订单只保存 user_id 和 product_id，通过 HTTP 校验买家并扣减库存，不建立跨库外键。
-
-### 题目 2：代码拆分
-
-三个服务都有独立 pom、配置、Controller、Service 和测试。订单服务用 RestTemplate 调用用户和商品服务，地址可由环境变量覆盖，连接超时 2 秒、读取超时 3 秒。./monolith/mvnw -f 各服务 pom.xml test 全部通过。用户不存在或商品服务不可用时不写订单。
-
-建议上传：`d9f3c721fd0c172252daeb7491f52056.png`。
-
-### 题目 3：本地编排
-
-docker compose up -d --build 启动 mysql:8.4.11 和三个服务。每个服务使用独立数据库和账号，数据在命名卷 services-mysql-data。订单服务通过服务名 user-service、product-service 访问，不使用 localhost。docker compose ps 中数据库为 healthy，三个服务都是 Up。
-
-建议上传：`6f7359cc31e361af748686a8ef7a4ff3.png`。
-
-### 题目 4：验证
-
-bash scripts/smoke-test.sh 对 8081、8082、8083 的健康接口都返回 200。创建买家和无线鼠标后下单，返回订单 id=1、金额 89.00、状态 PENDING_PAYMENT，库存变为 19。商品 99999 返回 404，停止商品服务后下单返回 503，两种失败都没有新增订单。
-
-建议上传：`bbc96e1af43ad190fc2c11c7c2e358cc.png`。

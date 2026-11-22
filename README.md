@@ -359,5 +359,39 @@ bash scripts/e2e-test.sh
 
 调用链路、失败处理和负载均衡记录在 [docs/service-communication.md](docs/service-communication.md) 与 [docs/homework/week-08/index.md](docs/homework/week-08/index.md)。停止时不要加 `-v`，否则会删除 `user-mysql-data`、`product-mysql-data`、`order-mysql-data` 和 `nacos-data`。
 
+第十一节记录的是各服务直接映射到宿主机时的调用方式。当前对外入口是第十二节的网关。
+
+十二、第 09 周 API 网关与 JWT
+
+`gateway-service` 监听 `8080`，按服务名把 `/api/auth/**`、`/api/users/**` 转到 `user-service`，把 `/api/products/**` 转到 `product-service`，把 `/api/orders/**` 转到 `order-service`。健康检查是 `GET /api/health` 和 `GET /actuator/health`。
+
+测试账号由用户服务启动时写入，数据库只保存 BCrypt 哈希：
+
+| 用户名 | 密码 | 角色 |
+| --- | --- | --- |
+| buyer | buyer-week09 | BUYER |
+| admin | admin-week09 | ADMIN |
+
+买家登录后可以查看订单。管理员还可以列出全部用户。未登录访问订单返回 401。买家访问用户列表返回 403。认证流程、路由表和身份头处理见 [docs/security.md](docs/security.md)。
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+bash scripts/auth-test.sh
+```
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d --build
+bash scripts/auth-test.sh
+```
+
+`JWT_SECRET` 使用至少 32 字节的占位符，写在 `.env`，不写进业务代码。本机网关端口是 `8080`。
+
+```powershell
+.\monolith\mvnw.cmd -f services\user-service\pom.xml test
+.\monolith\mvnw.cmd -f services\gateway-service\pom.xml test
+```
+
 ---
 *本仓库为《微服务架构与实践》课程持续演进的唯一项目仓库。*

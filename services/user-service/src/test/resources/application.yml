@@ -20,3 +20,8 @@ spring:
     service-registry:
       auto-registration:
         enabled: false
+
+app:
+  jwt:
+    secret: change-me-jwt-secret-32-characters
+    ttl-seconds: 7200

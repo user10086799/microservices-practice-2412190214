@@ -61,3 +61,5 @@ flowchart LR
   productB --> productDb
   orderSvc --> orderDb
 ```
+
+第 09 周起，浏览器和脚本从 `gateway-service:8080` 进入。网关按服务名转发到上面的三个服务。服务之间的 OpenFeign 调用仍直接走服务名，不经过网关。登录、角色和路由见 [security.md](security.md)。

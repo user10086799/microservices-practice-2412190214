@@ -94,33 +94,3 @@ HTTP/1.1 200
 订单 2 的 ID、买家、商品、数量、金额和状态与重建前相同。订单 1 也同样还在。命名卷把 MySQL 数据目录留在容器外面，所以只重建容器不会丢掉已经创建的订单和扣减后的库存。
 
 对应截图：[screenshots/8dfcc00e330e1b57d18d1a02d575ea50.png](screenshots/8dfcc00e330e1b57d18d1a02d575ea50.png)
-
-## 5. 作业系统填写稿
-
-公开仓库：https://github.com/user10086799/microservices-practice-2412190214
-
-下面四段可以直接复制，尚未提交。
-
-### 题目 1：Dockerfile 与镜像构建
-
-在仓库根目录执行 docker build -t distributed-shopping:week05 ./monolith。Dockerfile 先用 Maven 镜像打包 JAR，再用 JRE 镜像运行，构建不依赖本机 Maven。BUILD SUCCESS，镜像 distributed-shopping:week05 已生成，当前大小 588MB。
-
-建议上传：`7f63a5f43a915dfde1cc2c8459195299.png`。
-
-### 题目 2：Compose 编排与启动
-
-compose.yaml 启动 app 和 mysql:8.4.11。应用通过服务名 mysql 连接数据库，密码和库名来自 .env，真实 .env 不提交。MySQL 健康后应用才启动。docker compose up -d --build 后两个服务都在运行，应用映射到本机 8080。
-
-建议上传：`6f10dee1ebf457d92450d78da9974593.png`。
-
-### 题目 3：个人业务 API 验证
-
-健康检查 GET /actuator/health 返回 200 和 UP。GET /api/products 返回机械键盘和无线鼠标。POST /api/orders 购买 1 件无线鼠标，返回订单 id=2、金额 89.00、状态 PENDING_PAYMENT。GET /api/orders/2 读到同一条订单。
-
-建议上传：`83bf798631b0e7c4e86beaf332d7e23b.png`。
-
-### 题目 4：数据持久化验证
-
-先用创建订单接口写入订单 2，再执行 docker compose down，不使用 -v。命名卷 microserver_mysql-data 仍在。docker compose up -d 后再次 GET /api/orders/2，ID、买家、商品、数量、金额 89.00 和状态 PENDING_PAYMENT 都没有变化。
-
-建议上传：`8dfcc00e330e1b57d18d1a02d575ea50.png`。
